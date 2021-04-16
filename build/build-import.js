@@ -42,11 +42,22 @@ const ELEMENT_SAND = 2
 const ELEMENT_LENGTH = 3
 
 const elementColours = new Map()
-elementColours.set(ELEMENT_EMPTY, "rgb(224, 224, 224)")
-elementColours.set(ELEMENT_VOID, "rgb(224, 224, 224)")
+elementColours.set(ELEMENT_EMPTY, "rgb(45, 56, 77)")
+elementColours.set(ELEMENT_VOID, "rgb(23, 29, 40)")
 elementColours.set(ELEMENT_SAND, "rgb(255, 204, 70)")
 
 const spaceElements = new Uint32Array(WORLD_AREA)
+
+const getSpacePositionFromCanvasPosition = (cx, cy) => {
+	const y = Math.floor(cy / VOXEL_HEIGHT)
+	const ox = y % 2 !== 0? VOXEL_OFFSET : 0
+	const x = Math.floor((cx - ox) / VOXEL_WIDTH)
+	return [x, y]
+}
+
+const getSpaceIdFromPosition = (x, y) => {
+	return WORLD_WIDTH * y + x
+}
 
 const drawWorld = () => {
 	let id = 0
@@ -73,7 +84,22 @@ const drawWorld = () => {
 	}
 }
 
+let dropperElement = ELEMENT_SAND
+const update = () => {
+	if (Mouse.Left) {
+		const [mx, my] = Mouse.position
+		const [x, y] = getSpacePositionFromCanvasPosition(mx, my)
+		if (x >= WORLD_WIDTH) return
+		if (y >= WORLD_HEIGHT) return
+		if (x < 0) return
+		if (y < 0) return
+		const id = getSpaceIdFromPosition(x, y)
+		spaceElements[id] = dropperElement
+	}
+}
+
 const tick = () => {
+	update()
 	drawWorld()
 	requestAnimationFrame(tick)
 }
