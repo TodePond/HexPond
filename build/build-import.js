@@ -1,6 +1,14 @@
-import {Habitat} from "../libraries/habitat-import.js"
-Habitat.install(window)
+const stage = Stage.make()
+const {canvas, context} = stage
 
-const greet = (name) => console.log(`Hello ${name}!`)
+on.load(() => {
+	document.body.appendChild(canvas)
+    document.body.style["margin"] = "0"
+    canvas.style["background-color"] = "rgb(23, 29, 40)"
+    trigger("resize")
+})
 
-export {greet}
+on.resize(() => {
+    canvas.width = innerWidth
+    canvas.height = innerHeight
+})
