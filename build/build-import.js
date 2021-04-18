@@ -85,16 +85,44 @@ const drawWorld = () => {
 }
 
 let dropperElement = ELEMENT_SAND
+let dropperPreviousPosition = [undefined, undefined]
 const update = () => {
 	if (Mouse.Left) {
 		const [mx, my] = Mouse.position
-		const [x, y] = getSpacePositionFromCanvasPosition(mx, my)
-		if (x >= WORLD_WIDTH) return
-		if (y >= WORLD_HEIGHT) return
-		if (x < 0) return
-		if (y < 0) return
-		const id = getSpaceIdFromPosition(x, y)
-		spaceElements[id] = dropperElement
+		const [sx, sy] = getSpacePositionFromCanvasPosition(mx, my)
+		if (sx >= WORLD_WIDTH || sy >= WORLD_HEIGHT || sx < 0 || sy < 0) {
+			dropperPreviousPosition = [undefined, undefined]
+		}
+		else {
+			const [px, py] = dropperPreviousPosition
+			if (px === undefined || py === undefined) {
+				const id = getSpaceIdFromPosition(sx, sy)
+				spaceElements[id] = dropperElement
+			}
+			else {
+				const [dx, dy] = [mx - px, my - py]
+				const dmax = Math.max(Math.abs(dx), Math.abs(dy))
+				if (dmax === 0) {
+					const id = getSpaceIdFromPosition(sx, sy)
+					spaceElements[id] = dropperElement
+				}
+				else {
+					const [rx, ry] = [dx / dmax, dy / dmax]
+					let [ix, iy] = dropperPreviousPosition
+					for (let i = 0; i < dmax; i++) {
+						ix += rx
+						iy += ry
+						const [x, y] = getSpacePositionFromCanvasPosition(ix, iy)
+						const id = getSpaceIdFromPosition(Math.floor(x), Math.floor(y))
+						spaceElements[id] = dropperElement
+					}
+				}
+			}
+			dropperPreviousPosition = [mx, my]
+		}
+	}
+	else {
+		dropperPreviousPosition = [undefined, undefined]
 	}
 }
 
