@@ -19,13 +19,16 @@ const WORLD_WIDTH = 100
 const WORLD_HEIGHT = 100
 const WORLD_AREA = WORLD_WIDTH * WORLD_HEIGHT
 
-const VOXEL_INNER_WIDTH = 8
-const VOXEL_INNER_HEIGHT = 8
-const VOXEL_PADDING_X = 2
-const VOXEL_PADDING_Y = 2
+const VOXEL_INNER_WIDTH = 40
+const VOXEL_INNER_HEIGHT = 40
+const VOXEL_PADDING_X = 5
+const VOXEL_PADDING_Y = 5
 const VOXEL_WIDTH = VOXEL_INNER_WIDTH + VOXEL_PADDING_X
 const VOXEL_HEIGHT = VOXEL_INNER_HEIGHT + VOXEL_PADDING_Y
 const VOXEL_OFFSET = VOXEL_WIDTH / 2
+
+// https://en.wikipedia.org/wiki/Hexagon
+const HEX_RAT = 0.8660254
 
 const SPACE_ELEMENT = 0
 const SPACE_UP = 1
@@ -49,9 +52,9 @@ elementColours.set(ELEMENT_SAND, "rgb(255, 204, 70)")
 const spaceElements = new Uint32Array(WORLD_AREA)
 
 const getSpacePositionFromCanvasPosition = (cx, cy) => {
-	const y = Math.floor(cy / VOXEL_HEIGHT)
-	const ox = y % 2 !== 0? VOXEL_OFFSET : 0
-	const x = Math.floor((cx - ox) / VOXEL_WIDTH)
+	const x = Math.floor((cx / HEX_RAT) / VOXEL_WIDTH)
+	const oy = x % 2 !== 0? VOXEL_OFFSET : 0
+	const y = Math.floor((cy - oy) / VOXEL_HEIGHT)
 	return [x, y]
 }
 
@@ -60,28 +63,57 @@ const getSpaceIdFromPosition = (x, y) => {
 }
 
 const drawWorld = () => {
+
+	context.fillStyle = "rgb(23, 29, 40)"
+	context.fillRect(0, 0, canvas.height, canvas.width)
+
 	let id = 0
 	let x = 0
 	let xDraw = 0
 	let yDraw = 0
-	let isOddRow = false
+	let isOddColumn = false
 	while (id < WORLD_AREA) {
 		const element = spaceElements[id]
 		const colour = elementColours.get(element)
 		context.fillStyle = colour
-		context.fillRect(xDraw, yDraw, VOXEL_INNER_WIDTH, VOXEL_INNER_HEIGHT)
+		//context.fillRect(xDraw, yDraw, VOXEL_INNER_WIDTH, VOXEL_INNER_HEIGHT)
+		fillHexagon(xDraw * 0.8660254, yDraw + (isOddColumn? VOXEL_HEIGHT / 2 : 0), VOXEL_INNER_WIDTH)
 		id++
 		x++
+		isOddColumn = !isOddColumn
 		if (x >= WORLD_WIDTH) {
 			x = 0
-			xDraw = isOddRow? 0 : VOXEL_OFFSET
+			xDraw = 0
 			yDraw += VOXEL_HEIGHT
-			isOddRow = !isOddRow
 		}
 		else {
 			xDraw += VOXEL_WIDTH
 		}
 	}
+}
+
+const fillHexagon = (x, y, size) => {
+	context.beginPath()
+
+	const edgeBit = (size - (size * HEX_RAT))
+	edgeBit.d9
+
+	const left = [x, y + size/2]
+	const topLeft = [x + edgeBit, y]
+	const topRight = [x + size - edgeBit, y]
+	const right = [x + size, y + size/2]
+	const bottomRight = [x + size - edgeBit, y + size]
+	const bottomLeft = [x + edgeBit, y + size]
+
+	context.moveTo(...left)
+	context.lineTo(...topLeft)
+	context.lineTo(...topRight)
+	context.lineTo(...right)
+	context.lineTo(...bottomRight)
+	context.lineTo(...bottomLeft)
+	context.lineTo(...left)
+	context.closePath()
+	context.fill()
 }
 
 let dropperElement = ELEMENT_SAND
