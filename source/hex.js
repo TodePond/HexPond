@@ -45,6 +45,7 @@ const ELEMENT_VOID = 1
 const ELEMENT_SAND = 2
 const ELEMENT_WALL = 3
 const ELEMENT_WATER = 4
+const ELEMENT_LENGTH = 5
 
 const elementColours = new Map()
 elementColours.set(ELEMENT_EMPTY, "rgb(45, 56, 77)")
@@ -57,17 +58,17 @@ const elementBehaves = new Map()
 elementBehaves.set(ELEMENT_SAND, (origin) => {
 	const below = getNeighbour(origin, EW_DOWN)
 	const belowElement = spaceElements[below]
-	if (belowElement === ELEMENT_EMPTY) {
+	if (belowElement === ELEMENT_EMPTY || belowElement === ELEMENT_WATER) {
 		setSpace(below, ELEMENT_SAND)
-		setSpace(origin, ELEMENT_EMPTY)
+		setSpace(origin, belowElement)
 		return
 	}
 
 	const slide = getNeighbour(origin, oneIn(2)? EW_LEFT_DOWN : EW_RIGHT_DOWN)
 	const slideElement = spaceElements[slide]
-	if (slideElement === ELEMENT_EMPTY) {
+	if (slideElement === ELEMENT_EMPTY || slideElement === ELEMENT_WATER) {
 		setSpace(slide, ELEMENT_SAND)
-		setSpace(origin, ELEMENT_EMPTY)
+		setSpace(origin, slideElement)
 	}
 })
 
@@ -79,8 +80,9 @@ elementBehaves.set(ELEMENT_WATER, (origin) => {
 		setSpace(origin, ELEMENT_EMPTY)
 		return
 	}
-
-	const slide = getNeighbour(origin, oneIn(2)? EW_LEFT_DOWN : EW_RIGHT_DOWN)
+	
+	const right = oneIn(2)
+	const slide = getNeighbour(origin, right? EW_RIGHT_DOWN : EW_LEFT_DOWN)
 	const slideElement = spaceElements[slide]
 	if (slideElement === ELEMENT_EMPTY) {
 		setSpace(slide, ELEMENT_WATER)
@@ -88,10 +90,26 @@ elementBehaves.set(ELEMENT_WATER, (origin) => {
 		return
 	}
 	
-	const slip = getNeighbour(origin, oneIn(2)? EW_LEFT_UP : EW_RIGHT_UP)
+	const slide2 = getNeighbour(origin, right? EW_LEFT_DOWN : EW_RIGHT_DOWN)
+	const slide2Element = spaceElements[slide2]
+	if (slide2Element === ELEMENT_EMPTY) {
+		setSpace(slide2, ELEMENT_WATER)
+		setSpace(origin, ELEMENT_EMPTY)
+		return
+	}
+
+	const slip = getNeighbour(origin, right? EW_LEFT_UP : EW_RIGHT_UP)
 	const slipElement = spaceElements[slip]
 	if (slipElement === ELEMENT_EMPTY) {
 		setSpace(slip, ELEMENT_WATER)
+		setSpace(origin, ELEMENT_EMPTY)
+		return
+	}
+
+	const slip2 = getNeighbour(origin, right? EW_RIGHT_UP : EW_LEFT_UP)
+	const slip2Element = spaceElements[slip2]
+	if (slip2Element === ELEMENT_EMPTY) {
+		setSpace(slip2, ELEMENT_WATER)
 		setSpace(origin, ELEMENT_EMPTY)
 	}
 })
@@ -110,13 +128,18 @@ const getNeighbour = (space, neighbour) => {
 	return spaceNeighbours[offset]
 }
 
+let previousElement = -1
 const setSpace = (id, element) => {
 	if (id === -1) return
 	spaceElements[id] = element
 	const poffset = id * 2
 	const xDraw = spacePositions[poffset]
 	const yDraw = spacePositions[poffset + 1]
-	context.fillStyle = elementColours.get(element)
+	if (previousElement !== element) {
+		const colour = elementColours.get(element)
+		context.fillStyle = colour //slow
+		previousElement = element
+	}
 	fillHexagon(xDraw, yDraw)
 }
 
@@ -175,20 +198,19 @@ const HEX_EDGE_BIT = (VOXEL_INNER_WIDTH - (VOXEL_INNER_WIDTH * HEX_RAT))
 const fillHexagon = (x, y) => {
 	context.beginPath()
 
-	const left = [x, y + HALF_INNER_VOXEL_HEIGHT]
-	const topLeft = [x + HEX_EDGE_BIT, y]
-	const topRight = [x + VOXEL_INNER_HEIGHT - HEX_EDGE_BIT, y]
-	const right = [x + VOXEL_INNER_HEIGHT, y + HALF_INNER_VOXEL_HEIGHT]
-	const bottomRight = [x + VOXEL_INNER_HEIGHT - HEX_EDGE_BIT, y + VOXEL_INNER_HEIGHT]
-	const bottomLeft = [x + HEX_EDGE_BIT, y + VOXEL_INNER_HEIGHT]
+	const yPlusHalfInner = y + HALF_INNER_VOXEL_HEIGHT
+	const yPlusInner = y + VOXEL_INNER_HEIGHT
+	const xPlusEdge = x + HEX_EDGE_BIT
+	const xPlusInner = x + VOXEL_INNER_HEIGHT
+	const xPlusInnerSubEdge = xPlusInner - HEX_EDGE_BIT
 
-	context.moveTo(...left)
-	context.lineTo(...topLeft)
-	context.lineTo(...topRight)
-	context.lineTo(...right)
-	context.lineTo(...bottomRight)
-	context.lineTo(...bottomLeft)
-	context.lineTo(...left)
+	context.moveTo(x, yPlusHalfInner)
+	context.lineTo(xPlusEdge, y)
+	context.lineTo(xPlusInnerSubEdge, y)
+	context.lineTo(xPlusInner, yPlusHalfInner)
+	context.lineTo(xPlusInnerSubEdge, yPlusInner)
+	context.lineTo(xPlusEdge, yPlusInner)
+	context.lineTo(x, yPlusHalfInner)
 	context.closePath()
 	context.fill()
 }
@@ -208,12 +230,14 @@ const getCanvasPosition = (x, y) => {
 	return [xDraw, yDraw + (isOddColumn? HALF_VOXEL_HEIGHT : 0)]
 }
 
+const FIRE_SCALE = 1.0
+const FIRE_COUNT = WORLD_AREA * FIRE_SCALE
 let dropperElement = ELEMENT_SAND
 let dropperPreviousPosition = [undefined, undefined]
 const update = () => {
 
 	// Behaviour
-	for (let i = WORLD_AREA-1; i >= 0; i--) {
+	for (let i = 0; i < FIRE_COUNT; i++) {
 		const id = Random.Uint32 % WORLD_AREA
 		const element = spaceElements[id]
 		const behave = elementBehaves.get(element)
@@ -232,17 +256,13 @@ const update = () => {
 		else {
 			const [px, py] = dropperPreviousPosition
 			if (px === undefined || py === undefined) {
-				const id = getSpaceIdFromPosition(sx, sy)
-				spaceElements[id] = dropperElement
-				drawSpace(sx, sy, dropperElement)
+				drop(sx, sy)
 			}
 			else {
 				const [dx, dy] = [mx - px, my - py]
 				const dmax = Math.max(Math.abs(dx), Math.abs(dy))
 				if (dmax === 0) {
-					const id = getSpaceIdFromPosition(sx, sy)
-					spaceElements[id] = dropperElement
-					drawSpace(sx, sy, dropperElement)
+					drop(sx, sy)
 				}
 				else {
 					const [rx, ry] = [dx / dmax, dy / dmax]
@@ -251,9 +271,7 @@ const update = () => {
 						ix += rx
 						iy += ry
 						const [x, y] = getSpacePositionFromCanvasPosition(ix, iy)
-						const id = getSpaceIdFromPosition(x, y)
-						spaceElements[id] = dropperElement
-						drawSpace(x, y, dropperElement)
+						drop(x, y)
 					}
 				}
 			}
@@ -262,6 +280,21 @@ const update = () => {
 	}
 	else {
 		dropperPreviousPosition = [undefined, undefined]
+	}
+}
+
+let dropperSize = 2
+on.keydown(e => {
+	if (e.key === "]") dropperSize++
+	else if (e.key === "[") dropperSize--
+})
+
+const drop = (dx, dy) => {
+	for (let x = dx - dropperSize; x < dx + dropperSize; x++) {
+		for (let y = dy - dropperSize; y < dy + dropperSize; y++) {
+			const id = safelyGetSpaceIdFromPosition(x, y)
+			setSpace(id, dropperElement)
+		}
 	}
 }
 
